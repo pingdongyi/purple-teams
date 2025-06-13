@@ -580,29 +580,38 @@ process_message_resource(TeamsAccount *sa, JsonObject *resource)
 
 			if (!teams_is_user_self(sa, from) && content && *content) {
 				// Get group name: use conversation title if available, otherwise fallback to chatname
-				const gchar *group_title = purple_conversation_get_title(conv);
-				const gchar *group_name = (group_title && *group_title) ? group_title : chatname;
+				const gchar *group_name = NULL;
+				if (PURPLE_IS_CHAT_CONVERSATION(conv)) {
+					PurpleChatConversation *chatconv = PURPLE_CHAT_CONVERSATION(conv);
+					const gchar *topic = purple_chat_conversation_get_topic(chatconv);
+					group_name = (topic && *topic) ? topic : chatname;
+
+					purple_debug_info("feishu_trace", "topic: [%s], chatname: [%s], group_name: [%s]",
+						topic ? topic : "(null)",
+						chatname ? chatname : "(null)",
+						group_name ? group_name : "(null)");
+				}
 
 				// Get sender display name: prefer imdisplayname, then buddy alias, finally fallback to 'from'
 				const gchar *displayname = NULL;
 				if (json_object_has_member(resource, "imdisplayname"))
-				displayname = json_object_get_string_member(resource, "imdisplayname");
+					displayname = json_object_get_string_member(resource, "imdisplayname");
 				if ((!displayname || !*displayname) && json_object_has_member(resource, "imDisplayName"))
-				displayname = json_object_get_string_member(resource, "imDisplayName");
+					displayname = json_object_get_string_member(resource, "imDisplayName");
 
 				if (!displayname || !*displayname) {
-				PurpleBuddy *buddy = purple_blist_find_buddy(sa->account, from);
-				if (buddy) {
-					displayname = purple_buddy_get_local_alias(buddy);
-					if (!displayname || !*displayname)
-					displayname = purple_buddy_get_name(buddy);
-				}
+					PurpleBuddy *buddy = purple_blist_find_buddy(sa->account, from);
+					if (buddy) {
+						displayname = purple_buddy_get_local_alias(buddy);
+						if (!displayname || !*displayname)
+						displayname = purple_buddy_get_name(buddy);
+					}
 				}
 				if (!displayname || !*displayname)
-				displayname = from;
+					displayname = from;
 
 				// Combine group name and display name for sender label
-				gchar *sender = g_strdup_printf("[Group: %s] %s", group_name, displayname);
+				gchar *sender = g_strdup_printf("%s/%s", group_name, displayname);
 
 				// Strip HTML tags from the content to get plain text
 				gchar *plain = purple_markup_strip_html(content);
