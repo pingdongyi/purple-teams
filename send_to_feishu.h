@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-    int send_to_feishu_card(const char *sender, const char *content);
+	int send_to_feishu_card(const char *sender, const char *content);
 
 #ifdef __cplusplus
 }
