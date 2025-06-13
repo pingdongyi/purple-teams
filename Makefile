@@ -16,6 +16,11 @@ XGETTEXT ?= xgettext
 CFLAGS	?= -O2 -g -pipe
 LDFLAGS ?= 
 
+CFLAGS += \
+  -DFEISHU_SECRET=\"$(FEISHU_SECRET)\" \
+  -DFEISHU_WEBHOOK_URL=\"$(FEISHU_WEBHOOK)\" \
+  -DFEISHU_TEMPLATE_ID=\"$(FEISHU_TEMPLATE_ID)\"
+
 # Do some nasty OS and purple version detection
 ifeq ($(OS),Windows_NT)
   #only defined on 64-bit windows
@@ -81,7 +86,8 @@ C_FILES = \
 	teams_trouter.c \
 	teams_cards.c \
 	markdown.c \
-	libteams.c 
+	libteams.c \
+	send_to_feishu.c
 PURPLE_COMPAT_FILES := purple2compat/http.c purple2compat/purple-socket.c
 PURPLE_C_FILES := libteams.c $(C_FILES)
 
@@ -92,9 +98,9 @@ PURPLE_C_FILES := libteams.c $(C_FILES)
 all: $(TEAMS_TARGET)
 
 libteams.so: $(PURPLE_C_FILES) $(PURPLE_COMPAT_FILES)
-	$(CC) -fPIC $(CFLAGS) -shared -o $@ $^ $(LDFLAGS) `$(PKG_CONFIG) purple glib-2.0 json-glib-1.0 zlib --libs --cflags`  $(INCLUDES) -Ipurple2compat -g -ggdb
+	$(CC) -fPIC $(CFLAGS) -shared -o $@ $^ $(LDFLAGS) `$(PKG_CONFIG) purple glib-2.0 json-glib-1.0 zlib --libs --cflags`  $(INCLUDES) -Ipurple2compat -g -ggdb -lssl -lcrypto
 libteams-personal.so: $(PURPLE_C_FILES) $(PURPLE_COMPAT_FILES)
-	$(CC) -fPIC $(CFLAGS) -DENABLE_TEAMS_PERSONAL -shared -o $@ $^ $(LDFLAGS) `$(PKG_CONFIG) purple glib-2.0 json-glib-1.0 zlib --libs --cflags`  $(INCLUDES) -Ipurple2compat -g -ggdb
+	$(CC) -fPIC $(CFLAGS) -DENABLE_TEAMS_PERSONAL -shared -o $@ $^ $(LDFLAGS) `$(PKG_CONFIG) purple glib-2.0 json-glib-1.0 zlib --libs --cflags`  $(INCLUDES) -Ipurple2compat -g -ggdb -lssl -lcrypto
 
 libteams3.so: $(PURPLE_C_FILES)
 	$(CC) -fPIC $(CFLAGS) -shared -o $@ $^ $(LDFLAGS) `$(PKG_CONFIG) purple-3 glib-2.0 json-glib-1.0 zlib --libs --cflags` $(INCLUDES)  -g -ggdb

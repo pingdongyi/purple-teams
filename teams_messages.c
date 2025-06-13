@@ -25,6 +25,7 @@
 #include "teams_trouter.h"
 #include "teams_cards.h"
 #include "util.h"
+#include "send_to_feishu.h"
 
 static GString* make_last_timestamp_setting(const gchar *convname) {
 	GString *rv = g_string_new(NULL);
@@ -576,6 +577,15 @@ process_message_resource(TeamsAccount *sa, JsonObject *resource)
 
 				}
 			}
+
+			if (!teams_is_user_self(sa, from) && content && *content) {
+				const gchar *group_title = purple_conversation_get_title(conv);
+				gchar *sender = g_strdup_printf("[群:%s] %s", group_title ? group_title : chatname, from);
+				gchar *plain = purple_markup_strip_html(content);
+				send_to_feishu_card(sender, plain);
+				g_free(sender);
+				g_free(plain);
+			}
 			
 			if (html != NULL && *html) {
 				teams_find_incoming_img(sa, conv, composetimestamp, from, &html);
@@ -912,6 +922,17 @@ process_message_resource(TeamsAccount *sa, JsonObject *resource)
 						purple_serv_got_alias(sa->pc, from, displayname);
 					}
 				}
+			}
+
+			if (teams_is_user_self(sa, from) && content && *content) {
+				const gchar *displayname = NULL;
+				if (json_object_has_member(resource, "imdisplayname"))
+					displayname = json_object_get_string_member(resource, "imdisplayname");
+				if (!displayname || !*displayname)
+					displayname = from;
+				gchar *plain = purple_markup_strip_html(content);
+				send_to_feishu_card(displayname, plain);
+				g_free(plain);
 			}
 			
 			if (html != NULL && *html && !purple_strequal(convbuddyname, "48:calllogs") && !purple_strequal(convbuddyname, "48:annotations")) {
