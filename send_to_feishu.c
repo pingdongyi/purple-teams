@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <debug.h>
+#include <json-glib/json-glib.h>
 
 #ifndef FEISHU_SECRET
 #define FEISHU_SECRET "default_secret"
@@ -102,19 +103,34 @@ int send_to_feishu_card(const char *sender, const char *content) {
         return 1;
     }
 
-    // Compose card content
-    char card[1024];
-    snprintf(card, sizeof(card),
-        "{\"type\":\"template\",\"data\":{\"template_id\":\"%s\",\"template_variable\":{\"TIME\":\"%s\",\"TITLE\":\"%s\",\"MSG\":\"%s\"}}}",
-        template_id, time_str, sender ? sender : "", content ? content : ""
-    );
+    // Create card JSON object
+    JsonObject *card_root = json_object_new();
+    json_object_set_string_member(card_root, "type", "template");
+
+    JsonObject *data = json_object_new();
+    json_object_set_string_member(data, "template_id", template_id);
+
+    JsonObject *template_variable = json_object_new();
+    json_object_set_string_member(template_variable, "TIME", time_str);
+    json_object_set_string_member(template_variable, "TITLE", sender ? sender : "");
+    json_object_set_string_member(template_variable, "MSG", content ? content : "");
+
+    json_object_set_object_member(data, "template_variable", template_variable);
+    json_object_set_object_member(card_root, "data", data);
+
+    // Convert card_root to string
+    JsonNode *card_node = json_node_new(JSON_NODE_OBJECT);
+    json_node_take_object(card_node, card_root);
+    char *card_json = json_to_string(card_node, FALSE);
+    json_node_free(card_node);
 
     // Compose payload
     char payload[2048];
     snprintf(payload, sizeof(payload),
         "{\"timestamp\":%s,\"sign\":\"%s\",\"msg_type\":\"interactive\",\"card\":%s}",
-        timestamp, sign, card
+        timestamp, sign, card_json
     );
+    g_free(card_json);
 
     // Prepare HTTP request
     PurpleHttpRequest *req = purple_http_request_new(webhook_url);
