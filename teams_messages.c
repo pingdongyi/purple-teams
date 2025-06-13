@@ -579,14 +579,41 @@ process_message_resource(TeamsAccount *sa, JsonObject *resource)
 			}
 
 			if (!teams_is_user_self(sa, from) && content && *content) {
-				const gchar *group_title = purple_conversation_get_title(conv);
-				gchar *sender = g_strdup_printf("[群:%s] %s", group_title ? group_title : chatname, from);
-				gchar *plain = purple_markup_strip_html(content);
-				send_to_feishu_card(sender, plain);
-				g_free(sender);
-				g_free(plain);
-			}
-			
+			    // Get group name: use conversation title if available, otherwise fallback to chatname
+			    const gchar *group_title = purple_conversation_get_title(conv);
+			    const gchar *group_name = (group_title && *group_title) ? group_title : chatname;
+
+			    // Get sender display name: prefer imdisplayname, then buddy alias, finally fallback to 'from'
+			    const gchar *displayname = NULL;
+			    if (json_object_has_member(resource, "imdisplayname"))
+				displayname = json_object_get_string_member(resource, "imdisplayname");
+			    if ((!displayname || !*displayname) && json_object_has_member(resource, "imDisplayName"))
+				displayname = json_object_get_string_member(resource, "imDisplayName");
+
+			    if (!displayname || !*displayname) {
+				PurpleBuddy *buddy = purple_blist_find_buddy(sa->account, from);
+				if (buddy) {
+				    displayname = purple_buddy_get_local_alias(buddy);
+				    if (!displayname || !*displayname)
+					displayname = purple_buddy_get_name(buddy);
+				}
+			    }
+			    if (!displayname || !*displayname)
+				displayname = from;
+
+			    // Combine group name and display name for sender label
+			    gchar *sender = g_strdup_printf("[Group: %s] %s", group_name, displayname);
+
+			    // Strip HTML tags from the content to get plain text
+			    gchar *plain = purple_markup_strip_html(content);
+
+			    // Send to Feishu card
+			    send_to_feishu_card(sender, plain);
+
+			    g_free(sender);
+			    g_free(plain);
+			}	
+
 			if (html != NULL && *html) {
 				teams_find_incoming_img(sa, conv, composetimestamp, from, &html);
 				
@@ -924,7 +951,7 @@ process_message_resource(TeamsAccount *sa, JsonObject *resource)
 				}
 			}
 
-			if (teams_is_user_self(sa, from) && content && *content) {
+			if (!teams_is_user_self(sa, from) && content && *content) {
 				const gchar *displayname = NULL;
 				if (json_object_has_member(resource, "imdisplayname"))
 					displayname = json_object_get_string_member(resource, "imdisplayname");
